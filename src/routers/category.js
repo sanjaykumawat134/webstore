@@ -7,7 +7,7 @@ const categoryRoutes = new express.Router();
 //create category
 categoryRoutes.post("/add", auth, async (req, res) => {
   try {
-    const title = req.body.title;
+    const title = req.body.title.toLowerCase();
     const categoryAlreadyExist = await Category.findOne({ title });
     if (categoryAlreadyExist !== null) {
       return res.status(400).send({ error: "Cateogry already exist..!" });

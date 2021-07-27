@@ -34,10 +34,12 @@ productRoutes.get("/all", async (req, res) => {
   }
 });
 //get recent products
+// /product/recent?mostliked=true
 productRoutes.get("/recent", async (req, res) => {
   try {
     // const recent = req.query.recent;
     // recent = recent === 'true' ? true : false;
+
     let limit = req.query.limit;
     console.log(limit);
     if (!limit) {
@@ -125,10 +127,19 @@ productRoutes.delete("/:id", auth, async (req, res) => {
     res.status(404).send(error);
   }
 });
+//like a product
 productRoutes.put("/like", auth, async (req, res) => {
   try {
     const _id = req.body.productId;
-
+    const prd = await Product.findById(_id);
+    if (prd.likes) {
+      const likeExists = prd.likes.find((element) => {
+        return element.toString() == req.user._id.toString();
+      });
+      if (likeExists) {
+        return res.status(400).send({ error: "Already liked !" });
+      }
+    }
     const product = await Product.findByIdAndUpdate(
       { _id },
       {
@@ -136,41 +147,96 @@ productRoutes.put("/like", auth, async (req, res) => {
         $push: {
           likes: req.user._id,
         },
+        $pull: {
+          dislikes: req.user._id,
+        },
       },
       { new: true }
     );
-    console.log(product);
     res.status(200).send(product);
   } catch (error) {
     console.log(error);
     res.status(404).send(error);
   }
 });
-
+//dislike a product
 productRoutes.put("/dislike", auth, async (req, res) => {
   try {
     const _id = req.body.productId;
+    const prd = await Product.findById(_id);
+    if (prd.dislikes) {
+      const dislikeExists = prd.dislikes.find((element) => {
+        return element.toString() == req.user._id.toString();
+      });
+      if (dislikeExists) {
+        return res.status(400).send({ error: "Already disliked !" });
+      }
+    }
     const product = await Product.findByIdAndUpdate(
       { _id },
       {
-        $pull: {
-          likes: req.user._id,
-        },
         $push: {
           dislikes: req.user._id,
         },
-        allLikes: allLikes--,
-      }
+        $pull: {
+          likes: req.user._id,
+        },
+        $inc: {
+          allLikes: -1,
+        },
+      },
+      { new: true }
     );
+    res.send(product);
   } catch (error) {
     res.status(404).send(error);
   }
 });
 
+//get most liked product
+productRoutes.get("/mostliked", async (req, res) => {
+  try {
+    const product = await Product.find({}, null, {
+      sort: {
+        allLikes: -1,
+      },
+    });
+    res.send({ product });
+  } catch (error) {
+    console.log(error);
+    res.status(404).send(error);
+  }
+});
+//post a comment
+productRoutes.put("/comment", auth, async (req, res) => {
+  try {
+    const _id = req.body.productId;
+
+    const commentObj = {
+      text: req.body.text,
+      postedBy: req.user._id,
+    };
+    const commentedProduct = await Product.findByIdAndUpdate(
+      { _id },
+      {
+        $push: {
+          comments: commentObj,
+        },
+      },
+      { new: true }
+    );
+    res.send(commentedProduct);
+  } catch (error) {
+    console.log(error);
+    res.status(404).send({ error });
+  }
+});
+//
+
 productRoutes.get("/test", async (req, res) => {
-  const category = req.query.category;
+  const category = req.query.category.toString();
   const cat = await Category.findOne({ title: category });
-  const scat = await cat.populate("products");
+  const scat = await cat.populate({ path: "products" }).execPopulate();
   console.log(scat);
   console.log(scat.id);
   res.status(200).send(scat.products);

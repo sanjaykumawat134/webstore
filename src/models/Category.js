@@ -14,7 +14,7 @@ const categorySchema = new mongoose.Schema(
 categorySchema.virtual("products", {
   ref: "Product",
   foreignField: "category",
-  localField: "title",
+  localField: "_id",
 });
 
 // categorySchema.set("toObject", { virtuals: true });
